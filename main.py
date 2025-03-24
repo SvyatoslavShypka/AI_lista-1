@@ -1,5 +1,6 @@
 import pandas as pd
 import heapq
+import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -8,11 +9,11 @@ def load_data(filename):
     """Load CSV file into a Pandas DataFrame with explicit data types."""
     return pd.read_csv(filename, dtype={"line": str, "company": str}, low_memory=False)
 
-
 def parse_time(time_str):
     """Convert time string HH:MM:SS into minutes."""
     h, m, s = map(int, time_str.split(':'))
     return h * 60 + m  # Ignore seconds for simplicity
+
 
 def return_time(minutes):
     """Convert minutes into time string HH:MM:SS"""
@@ -20,7 +21,7 @@ def return_time(minutes):
     m_int = minutes % 60
     h = str(h_int) if h_int >= 10 else '0' + str(h_int)
     m = str(m_int) if m_int >= 10 else '0' + str(m_int)
-    return h + ':' + m + ':00' # Ignore seconds for simplicity
+    return h + ':' + m + ':00'  # Ignore seconds for simplicity
 
 
 def build_graph(df):
@@ -28,14 +29,15 @@ def build_graph(df):
     graph = defaultdict(list)
     for _, row in df.iterrows():
         start, end = row['start_stop'], row['end_stop']
-        departure, arrival = parse_time(str(row['departure_time'])), parse_time(str(row['arrival_time']))
-        line, company = str(row['line']), str(row['company'])
+        departure, arrival = parse_time(row['departure_time']), parse_time(row['arrival_time'])
+        line, company = row['line'], row['company']
         graph[start].append((end, departure, arrival, line, company))
     return graph
 
 
 def dijkstra(graph, start, end, arrival_time):
     """Dijkstra's algorithm to find the shortest path based on travel time."""
+    start_time = datetime.now()
     pq = [(arrival_time, start, [])]  # (current_time, stop, path)
     visited = {}
 
@@ -43,6 +45,9 @@ def dijkstra(graph, start, end, arrival_time):
         current_time, current_stop, path = heapq.heappop(pq)
 
         if current_stop == end:
+            end_time = datetime.now()
+            sys.stderr.write(f"Cost function value: {current_time}\n")
+            sys.stderr.write(f"Computation time: {end_time - start_time}\n")
             return path  # Solution found
 
         if current_stop in visited and visited[current_stop] <= current_time:
@@ -59,6 +64,7 @@ def dijkstra(graph, start, end, arrival_time):
 
 def a_star(graph, start, end, arrival_time, heuristic):
     """A* algorithm to find the optimal path based on a heuristic."""
+    start_time = datetime.now()
     pq = [(arrival_time, 0, start, [])]  # (cost, transfers, stop, path)
     visited = {}
 
@@ -66,6 +72,9 @@ def a_star(graph, start, end, arrival_time, heuristic):
         cost, transfers, current_stop, path = heapq.heappop(pq)
 
         if current_stop == end:
+            end_time = datetime.now()
+            sys.stderr.write(f"Cost function value: {cost}\n")
+            sys.stderr.write(f"Computation time: {end_time - start_time}\n")
             return path  # Solution found
 
         if current_stop in visited and visited[current_stop] <= cost:
@@ -87,9 +96,8 @@ def heuristic_dummy(stop, end):
     return 0
 
 
-def find_route(filename, start, end, criterion, arrival_time):
-    df = load_data(filename)
-    graph = build_graph(df)
+def find_route(graph, start, end, criterion, arrival_time):
+
     arrival_time_parsed = parse_time(arrival_time)
 
     if criterion == 't':
@@ -110,5 +118,7 @@ def find_route(filename, start, end, criterion, arrival_time):
 if __name__ == '__main__':
     # print(return_time(485))
     # find_route('DANE - lista 1.csv', 'Pola', 'Berenta', 't', '08:00:00')
-
-    find_route('DANE - lista 1.csv', 'Pola', 'Szczepin', 't', '08:00:00')
+    df = load_data('DANE - lista 1.csv')
+    graph = build_graph(df)
+    find_route(graph,'Pola', 'Szczepin', 't', '08:00:00')
+    # find_route(graph,'Pola', 'Szczepin', 'p', '08:00:00')
